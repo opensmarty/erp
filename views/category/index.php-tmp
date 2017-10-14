@@ -1,0 +1,107 @@
+<?php
+
+/* @var $this yii\web\View */
+$this->title = '分类管理';
+?>
+<?php
+$css = <<<CSS
+#data {height: 0px;display: none;}
+#data textarea { margin:0; padding:0; height:100%; width:100%; border:0; background:white; display:block; line-height:18px; }
+#data, #code { font: normal normal normal 12px/18px 'Consolas', monospace !important; }
+CSS;
+$this->registerCss($css);
+
+?>
+<div class="category-index">
+
+    <div class="body-content">
+        <div class="row">
+            <div class="col-lg-12">
+                <div id="container" role="main">
+                <div id="tree"></div>
+                <div id="data">
+                    <div class="content code" style="display:none;"><textarea id="code" readonly="readonly"></textarea></div>
+                    <div class="content folder" style="display:none;"></div>
+                    <div class="content image" style="display:none; position:relative;"><img src="" alt="" style="display:block; position:absolute; left:50%; top:50%; padding:0; max-height:90%; max-width:90%;" /></div>
+                    <div class="content default" style="text-align:center;">Select a node from the tree.</div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php
+$js = <<<JS
+		$(function () {
+			$(window).resize(function () {
+				var h = Math.max($(window).height() - 0, 420);
+				$('#container, #data, #tree, #data .content').height(h).filter('.default').css('lineHeight', h + 'px');
+			}).resize();
+
+			$('#tree')
+				.jstree({
+					'core' : {
+						'data' : {
+							'url' : '/category/operation?operation=get_node',
+							'data' : function (node) {
+								return { 'id' : node.id };
+							}
+						},
+						'check_callback' : true,
+                        'themes': {
+                            'name': 'default',
+                            'responsive': true
+                        }
+					},
+					'force_text' : true,
+					'plugins' : ['state','dnd','contextmenu','wholerow']
+				})
+				.on('delete_node.jstree', function (e, data) {
+					$.get('/category/operation?operation=delete_node', { 'id' : data.node.id })
+						.fail(function () {
+							data.instance.refresh();
+						});
+				})
+				.on('create_node.jstree', function (e, data) {
+					$.get('/category/operation?operation=create_node', { 'id' : data.node.parent, 'position' : data.position, 'text' : data.node.text })
+						.done(function (d) {
+							data.instance.set_id(data.node, d.id);
+						})
+						.fail(function () {
+							data.instance.refresh();
+						});
+				})
+				.on('rename_node.jstree', function (e, data) {
+					$.get('/category/operation?operation=rename_node', { 'id' : data.node.id, 'text' : data.text })
+						.fail(function () {
+							data.instance.refresh();
+						});
+				})
+				.on('move_node.jstree', function (e, data) {
+					$.get('/category/operation?operation=move_node', { 'id' : data.node.id, 'parent' : data.parent, 'position' : data.position })
+						.fail(function () {
+							data.instance.refresh();
+						});
+				})
+				.on('copy_node.jstree', function (e, data) {
+					$.get('/category/operation?operation=copy_node', { 'id' : data.original.id, 'parent' : data.parent, 'position' : data.position })
+						.always(function () {
+							data.instance.refresh();
+						});
+				})
+				.on('changed.jstree', function (e, data) {
+					if(data && data.selected && data.selected.length) {
+						$.get('/category/operation?operation=get_content&id=' + data.selected.join(':'), function (d) {
+							$('#data .default').text(d.content).show();
+						});
+					}
+					else {
+						$('#data .content').hide();
+						$('#data .default').text('Select a file from the tree.').show();
+					}
+				});
+		});
+JS;
+
+$this->registerJs($js);
+?>
